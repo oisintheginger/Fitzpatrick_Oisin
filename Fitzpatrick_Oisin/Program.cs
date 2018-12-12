@@ -66,7 +66,8 @@ namespace Fitzpatrick_Oisin
         public int PositionX;
         public int PositionY;
     }
-    //Using structs for type of enemy generation allows it to be returned as a value by the type generator method
+    
+    //Using structs for player/NPC status/type/allegiance allows it to be returned from a method
     public struct PlayerStatus
     {
         public position pos;
@@ -96,6 +97,7 @@ namespace Fitzpatrick_Oisin
         public string allegiance;
     }
 
+    
 
     public class Program
     {
@@ -103,22 +105,31 @@ namespace Fitzpatrick_Oisin
         public List<NPCObject> npcList = new List<NPCObject>();
         public PlayerObject Player;
 
+        public static int enemyKillCount;
+        public static int allyRecruitCount;
+
         public static void Main(string[] args)
         {
-            //Program p = new Program();
+            
+            enemyKillCount=0;
+            allyRecruitCount=0;
+            
             Console.WriteLine("Welcome. What is your name?");
             Console.WriteLine();
             String PlayerName = Console.ReadLine();
             Console.WriteLine();
             position generatedPosition = PositionGenerator();
             p.Player = new PlayerObject(PlayerName, 5, 10, generatedPosition);
-            Console.WriteLine("Greetings {0}, you are at ({1},{2})", PlayerName, generatedPosition.PositionX, generatedPosition.PositionY);
+            Console.WriteLine("Greetings {0}, you are at ({1},{2})", PlayerName.ToUpper(), generatedPosition.PositionX, generatedPosition.PositionY);
+            Console.WriteLine("Your leg has been injured after a fall and you need help back to town.");
+            Console.WriteLine("If you move, you hurt yourself (lose HP)");
+            Console.WriteLine("You also have a slingshot to defend yourself with. You have a range of 30 metres with it.");
             Console.WriteLine();
             Console.WriteLine("There are entities around you. Who are they?");
             Console.WriteLine();
 
             //Loop for creating NPC's
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
             {
                 string createdNPCName = Console.ReadLine();
                 if (i > 0 && createdNPCName == p.npcList[i-1].NPCname)   //making sure that the name of the npc is unique on the list
@@ -131,13 +142,48 @@ namespace Fitzpatrick_Oisin
 
                 npcAllegiance NPCAllegiance = allegianceGenerator(NPCTypeGenerator); // based on enemy type the allegiance status is set to enemy for foes and neutral for friends.
                 NPCObject newNPC = new NPCObject(createdNPCName, 1, NPCAllegiance, NPCPositionGenerator, NPCTypeGenerator);
-                Console.WriteLine("The {0} is at ({1},{2}). They have 1HP. " + NPCTypeGenerator.Type, createdNPCName, NPCPositionGenerator.PositionX, NPCPositionGenerator.PositionY);
+                Console.WriteLine("{0} is at ({1},{2}). They have 1HP. ", createdNPCName.ToUpper(), NPCPositionGenerator.PositionX, NPCPositionGenerator.PositionY);
                 Console.WriteLine();
                 p.npcList.Add(newNPC);
             }
+
+            //using function to create a win condition after all the enemies are spawned
+            int enemyCreatedCount =0, allyCreatedCount =0;
+            foreach(NPCObject npc in p.npcList)
+            {
+                if(npc.typeOfNPC.Type=="Foe")
+                {
+                    enemyCreatedCount += 1;
+                }
+                if(npc.typeOfNPC.Type =="Friend")
+                {
+                    allyCreatedCount += 1;
+                }
+            }
+            WinCondition winningCondition = WinCalculator(enemyCreatedCount, allyCreatedCount);
+
+            //Check the win/lose condition after every action, if not won or lost another action is given
             BeginAction:
+            bool Win = WinConditionChecker(winningCondition, enemyKillCount,allyRecruitCount);
+            if(Win==true)
+            {
+                Console.WriteLine("You Win! Your Score is: {0}", p.Player.playerHealth);
+                Console.WriteLine("Please relaunch application to play again!");
+                goto End;
+            }
+            bool lose = LoseCondtionChecker(p.Player);
+            if (lose == true)
+            {
+                Console.WriteLine("You Lose! Your Score is: {0}", p.Player.playerHealth);
+                Console.WriteLine("Please relaunch application to play again!");
+                goto End;
+            }
             playerAction();
             goto BeginAction;
+
+            //looping end game
+            End:
+            goto End;
         }
 
         //method for generating positions for both NPCs and PCs
@@ -188,44 +234,50 @@ namespace Fitzpatrick_Oisin
        
             Console.WriteLine("What do I want to do?");
             Console.WriteLine();
-            Console.WriteLine("1) Move to a new location 2) Shoot an NPC, 3) Check my status, 4) Check NPC status, 5)Talk to an npc");
+            Console.WriteLine("1) Move to a new location 2) Shoot an NPC, 3) Check my status, 4) Check NPC status, 5)Talk to an NPC, 6) Request alliance with an NPC");
+            Console.WriteLine();
 
 
             string answer = Console.ReadLine();
-            if (answer.ToLower() == "move")
+            if (answer.ToLower() == "1")
             {
                 position NewPlayerPosition = Mover();
                 p.Player.PlayerPosition = NewPlayerPosition;
                 
             }
 
-            else if (answer.ToLower() == "shoot")
+            else if (answer.ToLower() == "2")
             {
                 ShootNPC();
                 
             }
 
-            else if (answer.ToLower() == "my status")
+            else if (answer.ToLower() == "3")
             {
                 CheckPlayerStatus();
                 
             }
 
-            else if (answer.ToLower() == "npc status")
+            else if (answer.ToLower() == "4")
             {
                 CheckNPCStatus();
                 
             }
 
-            else if( answer.ToLower() == "talk")
+            else if( answer.ToLower() == "5")
             {
                 QueryNPC();
+            }
+
+            else if (answer.ToLower() == "6")
+            {
+                RequestAlliance();
             }
 
             else
             {
                 Console.WriteLine("Please type instruction option.");
-                
+                Console.WriteLine();
             }
         }
 
@@ -261,6 +313,14 @@ namespace Fitzpatrick_Oisin
                     goto WrongInputX;
                 }
             }
+            else if(playerChosenPosX.ToLower() == "cancel")
+            {
+                Console.WriteLine("Action Cancelled");
+                Console.WriteLine();
+                newPosition.PositionX = p.Player.PlayerPosition.PositionX;
+                newPosition.PositionY = p.Player.PlayerPosition.PositionY;
+                goto End;
+            }
             else
             {
                 Console.WriteLine("Please give a number for where to move to");
@@ -284,12 +344,21 @@ namespace Fitzpatrick_Oisin
                 if (v <= 100 && v >= 1)
                 {
                     newPosition.PositionY = v;
+                    
                 }
                 else
                 {
                     Console.WriteLine("Give a number between 1 and 100");
                     goto WrongInputY;
                 }
+            }
+            else if (playerChosenPosY.ToLower() == "cancel")
+            {
+                Console.WriteLine("Action Cancelled");
+                Console.WriteLine();
+                newPosition.PositionX = p.Player.PlayerPosition.PositionX;
+                newPosition.PositionY = p.Player.PlayerPosition.PositionY;
+                goto End;
             }
             else
             {
@@ -300,7 +369,11 @@ namespace Fitzpatrick_Oisin
             Console.WriteLine();
             Console.WriteLine("Your new position is ({0},{1})", newPosition.PositionX, newPosition.PositionY);
             Console.WriteLine();
+            p.Player.playerHealth -= 2;
+            End:
             return newPosition;
+            
+            
         }
 
         //Shooting Method
@@ -309,6 +382,11 @@ namespace Fitzpatrick_Oisin
             int healthLoss = 0;
             Console.WriteLine("Which entity do you want to shoot?");
             string target = Console.ReadLine();
+            if(target.ToLower() == "cancel")
+            {
+                Console.WriteLine("Action cancelled");
+                goto End;
+            }
             foreach (NPCObject npc in p.npcList)
             {
 
@@ -322,14 +400,15 @@ namespace Fitzpatrick_Oisin
                         {
                             Console.WriteLine("You just shot a friend! You lose HP as punishment");
                             p.Player.playerHealth -= 2;
-                            p.Player.playerAmmo -= 1;
-                            Console.WriteLine(p.Player.playerHealth);
+                            p.Player.playerAmmo -= 1; 
                             Console.WriteLine();
                         }
                         if(npc.typeOfNPC.Type== "Foe")
                         {
                             Console.WriteLine("Target shot");
                             healthLoss = -1;
+                            enemyKillCount += 1;
+                            Console.WriteLine(enemyKillCount);
                             p.Player.playerAmmo -= 1;
                             npc.NPCHealth += healthLoss; //taking away the health from the enemy
                             Console.WriteLine();
@@ -352,7 +431,7 @@ namespace Fitzpatrick_Oisin
                 }
                 
             }
-
+            End:
             return healthLoss;
         }
 
@@ -364,7 +443,7 @@ namespace Fitzpatrick_Oisin
             playerStats.playerHealth = p.Player.playerHealth;
             playerStats.playerAmmo = p.Player.playerAmmo;
             playerStats.pos = p.Player.PlayerPosition;
-            Console.WriteLine("{0} has {1}HP, {2} ammo, and is at ({3},{4})", playerStats.playerName, playerStats.playerHealth,
+            Console.WriteLine("{0} has: {1}HP, {2} slingshot ammo, and is at ({3},{4})", playerStats.playerName.ToUpper(), playerStats.playerHealth,
                                                     playerStats.playerAmmo, playerStats.pos.PositionX, playerStats.pos.PositionY);
 
         }
@@ -381,7 +460,8 @@ namespace Fitzpatrick_Oisin
                 npcStats.allegiance = npc.Allystatus;
                 npcStats.disposition = npc.friendFoe;
 
-                Console.WriteLine("{0} is at ({1},{2}). They have {3}HP and are of a{4} disposition. " + npcStats.allegiance.allegiance, npcStats.npcName, npcStats.npcPos.PositionX, npcStats.npcPos.PositionY, npcStats.NPChealth, npcStats.disposition);
+                Console.WriteLine("{0} is at ({1},{2}). They have {3}HP and are of a{4} disposition. They are ({5},{6}) metres away from the player. " + npcStats.allegiance.allegiance, npcStats.npcName.ToUpper(),
+                    npcStats.npcPos.PositionX, npcStats.npcPos.PositionY, npcStats.NPChealth, npcStats.disposition, MathF.Abs(npc.NPCposition.PositionX-p.Player.PlayerPosition.PositionX), MathF.Abs(npc.NPCposition.PositionY - p.Player.PlayerPosition.PositionY));
             }
         }
 
@@ -393,13 +473,14 @@ namespace Fitzpatrick_Oisin
             string target = Console.ReadLine();
             Console.WriteLine();
 
-            foreach(NPCObject npc in p.npcList)
+            
+            foreach (NPCObject npc in p.npcList)
             {
                 if(target== npc.NPCname && npc.NPCHealth>0)
                 {
                     if(npc.typeOfNPC.Type=="Friend")
                     {
-                        Console.WriteLine("Hello friend, I am a travelling merchant. Do you know the way back to town?");
+                        Console.WriteLine("{0} : 'Hello friend, I am a travelling merchant. Do you know the way back to town?'", npc.NPCname.ToUpper());
                         Console.WriteLine("This person is of good character, perhaps they could be my ally");
                         Console.WriteLine();
 
@@ -413,30 +494,86 @@ namespace Fitzpatrick_Oisin
 
                     if(npc.typeOfNPC.Type == "Foe")
                     {
-                        Console.WriteLine("Hey there, you have some nice boots. Would you like me to show you back to town?");
-                        Console.WriteLine( "This person is definitely a bandit.");
-                        Console.WriteLine();
-
-
-                        npc.Allystatus.allegiance = "This person is an enemy.";
-                        npc.friendFoe = "n aggressive";
+                        if (npc.Allystatus.allegiance != "Enemy")
+                        {
+                            Console.WriteLine("{0} : 'Hey there, you have some nice boots. Would you like me to show you back to town?'", npc.NPCname.ToUpper());
+                            Console.WriteLine("This person is of a strange ilk, mayhaps a bandit in disguise.");
+                            Console.WriteLine();
+                            npc.friendFoe = " strange";
+                        }
+                        if (npc.Allystatus.allegiance == "Enemy")
+                        {
+                            Console.WriteLine("{0} : 'ARGH I'M GONNA KILL AND ROB YOU!'", npc.NPCname.ToUpper());
+                            Console.WriteLine("Oh no! This person is a damnable bandit!");
+                            Console.WriteLine();
+                            npc.friendFoe = "n angry";
+                        }
                     }
                 }
                 else if(npc.NPCHealth<=0)
                 {
                     Console.WriteLine("You can't talk to the dead.");
                 }
-                else
+                if (target.ToLower() == "cancel")
                 {
-                    Console.WriteLine("Please enter a valid target.");
+                    Console.WriteLine("Action cancelled");
+                    return;
                 }
+                
             }
+            
         }
 
+        //NPC Aliiance Request
         public static void RequestAlliance()
         {
             Console.WriteLine("Which NPC do you want to team up with?");
+            Console.WriteLine();
+            string target = Console.ReadLine();
+
+            foreach(NPCObject npc in p.npcList)
+            {
+                if(target == npc.NPCname)
+                {
+                    if(npc.typeOfNPC.Type=="Friend")
+                    {
+                        if (npc.Allystatus.allegiance == "Ally")
+                        {
+                            Console.WriteLine("This person is already your ally.");
+                        }
+
+                        if (npc.Allystatus.allegiance=="Neutral")
+                        {
+                            npc.Allystatus.allegiance = "Ally";
+                            Console.WriteLine("{0} is now your ally.", npc.NPCname.ToUpper());
+                            allyRecruitCount += 1;
+                        }
+                        
+                        if(npc.Allystatus.allegiance!="Ally"&& npc.Allystatus.allegiance != "Neutral")
+                        {
+                            Console.WriteLine("Perhaps I should know this person before I ask them to become my ally.");
+                        }
+                    }
+
+                    if(npc.typeOfNPC.Type =="Foe")
+                    {
+                        Console.WriteLine("Ouch! This person wants to hurt me. They are not my ally");
+                        npc.Allystatus.allegiance = "Enemy";
+                        npc.friendFoe = "n angry";
+                        p.Player.playerHealth -= 2;
+                    }
+
+                }
+                if (target.ToLower() == "cancel")
+                {
+                    Console.WriteLine("Action cancelled");
+                    return;
+                }
+            }
+
+
         }
+
         //calculating necessary win condition
         public static WinCondition WinCalculator(int enemyAdded, int allyAdded)
         {
@@ -446,6 +583,46 @@ namespace Fitzpatrick_Oisin
             return goal;
         }
         
+        //Win Condition Checker
+        public static bool WinConditionChecker(WinCondition requirements, int enemies, int allies)
+        {
+            bool winLose ;
+            if(enemyKillCount >= requirements.deadEnemies && allyRecruitCount >= requirements.recruits)
+            {
+                Console.WriteLine("You win!");
+                winLose = true;
+            }
+            else
+            {
+                winLose = false;
+            }
+            return winLose;
+        }
+
+        //Lose Condition Checker
+        public static bool LoseCondtionChecker(PlayerObject playerHealth)
+        {
+            bool lose =false;
+            if(playerHealth.playerHealth>0)
+            {
+                lose = false;
+            }
+            else if(playerHealth.playerHealth<=0)
+            {
+                lose = true;
+            }
+            foreach(NPCObject npc in p.npcList)
+            {
+                if( npc.typeOfNPC.Type =="Friend")
+                {
+                    if(npc.NPCHealth<=0)
+                    {
+                        lose = true;
+                    }
+                }
+            }
+            return lose;
+        }
     }
 
     //Character Objects
